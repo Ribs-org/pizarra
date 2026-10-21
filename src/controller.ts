@@ -23,7 +23,7 @@ type Gesture =
   | { k: 'shape'; id: number; tool: ShapeTool; start: Vec; seed: number; elId: string }
   | { k: 'pan'; id: number; last: Vec }
   | { k: 'pinch'; a: number; b: number; startDist: number; startMid: Vec; startCam: Camera }
-  | { k: 'move'; id: number; start: Vec; before: El[]; ids: Set<string>; moved: boolean; tapId?: string }
+  | { k: 'move'; id: number; start: Vec; before: El[]; ids: Set<string>; moved: boolean; tapId?: string; untoggle?: boolean }
   | { k: 'scale'; id: number; anchor: Vec; startDist: number; before: El[]; ids: Set<string> }
   | { k: 'marquee'; id: number; start: Vec; base: string[] }
   | { k: 'erase'; id: number; last: Vec; hits: Set<string> }
@@ -49,6 +49,11 @@ export class BoardController {
   private downAt: { p: Vec; t: number } | null = null
   spaceDown = false
   private readonly el: SVGSVGElement
+
+  /** Ctrl apretado: el cursor avisa que un clic selecciona en vez de dibujar. */
+  set multiSelect(on: boolean) {
+    this.el.toggleAttribute('data-multi', on)
+  }
 
   constructor(el: SVGSVGElement) {
     this.el = el
@@ -101,7 +106,9 @@ export class BoardController {
     useStore.getState().setUI({ menu: false })
 
     const isEraserButton = e.pointerType === 'pen' && (e.button === 5 || (e.buttons & 32) !== 0)
-    const tool: Tool = isEraserButton ? 'eraser' : e.button === 1 || this.spaceDown ? 'hand' : s.tool
+    // Con Ctrl (⌘ en Mac) apretado se selecciona con cualquier herramienta, sumando a la selección.
+    const multi = e.ctrlKey || e.metaKey
+    const tool: Tool = isEraserButton ? 'eraser' : e.button === 1 || this.spaceDown ? 'hand' : multi ? 'select' : s.tool
     const w = this.world(p)
 
     switch (tool) {
@@ -265,7 +272,10 @@ export class BoardController {
       }
       case 'move':
         if (g.moved) s.pushHistory(g.before)
-        else if (isTap) this.handleTap(p, g.tapId)
+        else if (isTap) {
+          if (g.untoggle) s.select(s.selection.filter((id) => id !== g.tapId))
+          this.handleTap(p, g.tapId)
+        }
         break
       case 'scale':
         s.pushHistory(g.before)
@@ -417,20 +427,31 @@ export class BoardController {
       }
     }
 
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey
     const hit = this.hitTest(w)
     if (hit) {
       let sel = s.selection
-      if (e.shiftKey) sel = sel.includes(hit.id) ? sel.filter((id) => id !== hit.id) : [...sel, hit.id]
-      else if (!sel.includes(hit.id)) sel = [hit.id]
+      const already = sel.includes(hit.id)
+      if (!already) sel = additive ? [...sel, hit.id] : [hit.id]
       s.select(sel)
-      this.g = { k: 'move', id: e.pointerId, start: w, before: s.elements, ids: new Set(sel), moved: false, tapId: hit.id }
+      // Si ya estaba seleccionado, se quita solo al soltar sin arrastrar: así se puede mover el grupo.
+      this.g = {
+        k: 'move',
+        id: e.pointerId,
+        start: w,
+        before: s.elements,
+        ids: new Set(sel),
+        moved: false,
+        tapId: hit.id,
+        untoggle: additive && already,
+      }
       return
     }
     if (box && w[0] >= box.minX && w[0] <= box.maxX && w[1] >= box.minY && w[1] <= box.maxY) {
       this.g = { k: 'move', id: e.pointerId, start: w, before: s.elements, ids: new Set(s.selection), moved: false }
       return
     }
-    const base = e.shiftKey ? s.selection : []
+    const base = additive ? s.selection : []
     s.select(base)
     this.g = { k: 'marquee', id: e.pointerId, start: w, base }
   }

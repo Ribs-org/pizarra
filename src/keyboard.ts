@@ -29,6 +29,7 @@ function isTyping(e: KeyboardEvent) {
 export function useKeyboard() {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if ((e.key === 'Control' || e.key === 'Meta') && boardController) boardController.multiSelect = true
       if (isTyping(e)) return
       const s = useStore.getState()
       const mod = e.ctrlKey || e.metaKey
@@ -102,12 +103,19 @@ export function useKeyboard() {
     }
     const up = (e: KeyboardEvent) => {
       if (e.key === ' ' && boardController) boardController.spaceDown = false
+      if ((e.key === 'Control' || e.key === 'Meta') && boardController) boardController.multiSelect = false
+    }
+    // Si se suelta Ctrl fuera de la ventana (Alt+Tab, etc.) no llega el keyup.
+    const blur = () => {
+      if (boardController) boardController.multiSelect = false
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
+    window.addEventListener('blur', blur)
     return () => {
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
+      window.removeEventListener('blur', blur)
     }
   }, [])
 }

@@ -52,6 +52,7 @@ Pizarra táctil hecha para **grabar videos que se vean profesionales**: la letra
 | `Espacio` + arrastrar | Mover la vista |
 | `Ctrl+Z` / `Ctrl+Y` | Deshacer / rehacer |
 | `Ctrl+D` · `Supr` | Duplicar · eliminar selección |
+| `Ctrl` + clic / arrastrar | Seleccionar varias cosas (con cualquier herramienta) |
 | `Shift+1` · `Ctrl+0` | Ver todo · zoom 100% |
 | `Ctrl+Shift+E` · `Ctrl+Shift+C` | Exportar PNG · copiar como imagen |
 | `Ctrl+S` · `Ctrl+O` | Guardar · abrir archivo `.pizarra.json` |

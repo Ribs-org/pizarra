@@ -26,6 +26,7 @@ const KEYS: [string, string][] = [
   ['Ctrl+Z / Ctrl+Y', 'Deshacer / rehacer'],
   ['Ctrl+D · Supr', 'Duplicar · eliminar selección'],
   ['Ctrl+A', 'Seleccionar todo'],
+  ['Ctrl + clic / arrastrar', 'Seleccionar varias cosas (con cualquier herramienta)'],
   ['Shift+1', 'Ver todo el contenido'],
   ['Ctrl+0 / Ctrl+= / Ctrl+-', 'Zoom 100% / acercar / alejar'],
   ['Ctrl+Shift+E · Ctrl+Shift+C', 'Exportar PNG · copiar imagen'],
