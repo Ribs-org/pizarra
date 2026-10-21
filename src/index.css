@@ -576,6 +576,8 @@ input[type='range'] {
   display: flex;
   flex-direction: column;
   z-index: 10;
+  /* opaca: lo que hay detrás no debe competir con los nombres de los dibujos */
+  background: var(--panel-solid);
 }
 .search {
   display: flex;
