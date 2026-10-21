@@ -1,0 +1,11 @@
+{
+  "name": "Pizarra",
+  "short_name": "Pizarra",
+  "description": "Pizarra táctil para grabar videos: letra suavizada, formas que se arreglan solas y dibujos a mano.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#141417",
+  "theme_color": "#141417",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
