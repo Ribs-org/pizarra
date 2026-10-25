@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Box, El, StrokeEl } from './types'
+import type { Box, El, Frame, StrokeEl } from './types'
 
 /** Estado efímero de lo que se está dibujando (separado para no re-renderizar toda la pizarra). */
 interface Live {
@@ -9,6 +9,8 @@ interface Live {
   /** se acaba de convertir el trazo en forma (para el destello) */
   snapped: number
   marquee: Box | null
+  /** marco de la selección mientras se gira (si no, la caja se re-calcularía y saltaría) */
+  frame: Frame | null
   erasing: string[]
   /** estelas del puntero láser en coordenadas del mundo: [x, y, t] */
   laser: [number, number, number][][]
@@ -20,6 +22,7 @@ export const useLive = create<Live>()((set) => ({
   preview: null,
   snapped: 0,
   marquee: null,
+  frame: null,
   erasing: [],
   laser: [],
   set: (p) => set(p),

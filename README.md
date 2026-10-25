@@ -32,6 +32,7 @@ Pizarra táctil hecha para **grabar videos que se vean profesionales**: la letra
 | Toque con 3 dedos | Rehacer |
 | Mantener quieto al final del trazo | Convertir en forma limpia |
 | Doble toque (herramienta Seleccionar) | Editar un texto / texto nuevo |
+| Arrastrar la manilla redonda sobre la selección | Girar (se pega a 90°; con `Shift`, de a 15°) |
 | Lupa: 2 dedos | Mover la zona de escritura |
 
 ## Atajos de teclado
@@ -51,6 +52,7 @@ Pizarra táctil hecha para **grabar videos que se vean profesionales**: la letra
 | `F` | Pantalla completa |
 | `Espacio` + arrastrar | Mover la vista |
 | `Ctrl+Z` / `Ctrl+Y` | Deshacer / rehacer |
+| `Ctrl+V` | Pegar una imagen o captura (también "Pegar imagen" en la paleta) |
 | `Ctrl+D` · `Supr` | Duplicar · eliminar selección |
 | `Ctrl` + clic / arrastrar | Seleccionar varias cosas (con cualquier herramienta) |
 | `Shift+1` · `Ctrl+0` | Ver todo · zoom 100% |

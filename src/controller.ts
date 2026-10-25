@@ -6,14 +6,25 @@
  *  - 2 dedos: mover y hacer zoom (pellizco)
  *  - toque con 2 dedos: deshacer · toque con 3 dedos: rehacer
  */
-import { commitEditing, pointerState, selectionBox, startText } from './actions'
-import { boxContains, dist, elementBox, hitDistance, scaleEl, translateEl } from './geometry'
+import { commitEditing, pointerState, selectionFrame, startText } from './actions'
+import {
+  boxContains,
+  dist,
+  elementBox,
+  frameCorners,
+  hitDistance,
+  pointInPolygon,
+  rotateEl,
+  scaleEl,
+  selectionHandles,
+  translateEl,
+} from './geometry'
 import { InkSession } from './ink'
 import { useLive } from './live'
 import { snapAngle } from './recognize'
 import { newId, newSeed, screenToWorld, useStore, zoomAt } from './store'
 import { SIZES } from './theme'
-import type { Box, Camera, El, TextEl, Tool, Vec } from './types'
+import type { Box, Camera, El, Frame, TextEl, Tool, Vec } from './types'
 
 type ShapeTool = Extract<Tool, 'rect' | 'ellipse' | 'diamond' | 'line' | 'arrow'>
 
@@ -25,12 +36,16 @@ type Gesture =
   | { k: 'pinch'; a: number; b: number; startDist: number; startMid: Vec; startCam: Camera }
   | { k: 'move'; id: number; start: Vec; before: El[]; ids: Set<string>; moved: boolean; tapId?: string; untoggle?: boolean }
   | { k: 'scale'; id: number; anchor: Vec; startDist: number; before: El[]; ids: Set<string> }
+  | { k: 'rotate'; id: number; frame: Frame; from: number; before: El[]; ids: Set<string> }
   | { k: 'marquee'; id: number; start: Vec; base: string[] }
   | { k: 'erase'; id: number; last: Vec; hits: Set<string> }
   | { k: 'laser'; id: number }
 
 const SHAPE_TOOLS = new Set<Tool>(['rect', 'ellipse', 'diamond', 'line', 'arrow'])
 const TAP_SLOP = 10
+/** Al girar: Shift va de a 15°; sin Shift, se pega a 0°, 90°, 180° y 270° cuando pasa cerca. */
+const ROTATE_STEP = Math.PI / 12
+const ROTATE_STICK = (4 * Math.PI) / 180
 
 interface TapGroup {
   start: number
@@ -203,6 +218,21 @@ export class BoardController {
         useStore.getState().setElements(g.before.map((el) => (g.ids.has(el.id) ? scaleEl(el, s, g.anchor) : el)))
         break
       }
+      case 'rotate': {
+        const f = g.frame
+        const c: Vec = [f.cx, f.cy]
+        const w = this.world(p)
+        let target = f.angle + Math.atan2(w[1] - c[1], w[0] - c[0]) - g.from
+        if (e.shiftKey) target = Math.round(target / ROTATE_STEP) * ROTATE_STEP
+        else {
+          const right = Math.round(target / (Math.PI / 2)) * (Math.PI / 2)
+          if (Math.abs(target - right) < ROTATE_STICK) target = right
+        }
+        const a = target - f.angle
+        useLive.getState().set({ frame: { ...f, angle: target } })
+        useStore.getState().setElements(g.before.map((el) => (g.ids.has(el.id) ? rotateEl(el, a, c) : el)))
+        break
+      }
       case 'marquee': {
         const w = this.world(p)
         const box: Box = {
@@ -280,6 +310,10 @@ export class BoardController {
       case 'scale':
         s.pushHistory(g.before)
         break
+      case 'rotate':
+        useLive.getState().set({ frame: null })
+        s.pushHistory(g.before)
+        break
       case 'marquee':
         useLive.getState().set({ marquee: null })
         if (isTap) this.handleTap(p)
@@ -333,7 +367,10 @@ export class BoardController {
       live.set({ stroke: null, preview: null })
     } else if (g.k === 'shape') live.set({ preview: null })
     else if (g.k === 'move' || g.k === 'scale') useStore.getState().setElements(g.before)
-    else if (g.k === 'marquee') live.set({ marquee: null })
+    else if (g.k === 'rotate') {
+      useStore.getState().setElements(g.before)
+      live.set({ frame: null })
+    } else if (g.k === 'marquee') live.set({ marquee: null })
     else if (g.k === 'erase') live.set({ erasing: [] })
     this.g = { k: 'none' }
   }
@@ -401,20 +438,27 @@ export class BoardController {
 
   private selectDown(e: PointerEvent, w: Vec) {
     const s = useStore.getState()
-    const box = s.selection.length ? selectionBox() : null
+    const frame = s.selection.length ? selectionFrame() : null
 
-    // ¿Tomó una esquina para escalar?
-    if (box) {
-      const corners: Vec[] = [
-        [box.minX, box.minY],
-        [box.maxX, box.minY],
-        [box.maxX, box.maxY],
-        [box.minX, box.maxY],
-      ]
+    if (frame) {
+      const handles = selectionHandles(frame, this.z)
       const hitRadius = e.pointerType === 'touch' ? 22 : 12
-      const ci = corners.findIndex((c) => dist(c, w) * this.z < hitRadius)
+      // ¿Tomó la manilla de arriba para girar?
+      if (dist(handles.rotate, w) * this.z < hitRadius) {
+        this.g = {
+          k: 'rotate',
+          id: e.pointerId,
+          frame,
+          from: Math.atan2(w[1] - frame.cy, w[0] - frame.cx),
+          before: s.elements,
+          ids: new Set(s.selection),
+        }
+        return
+      }
+      // ¿Tomó una esquina para escalar?
+      const ci = handles.corners.findIndex((c) => dist(c, w) * this.z < hitRadius)
       if (ci !== -1) {
-        const anchor = corners[(ci + 2) % 4]
+        const anchor = frameCorners(frame)[(ci + 2) % 4]
         this.g = {
           k: 'scale',
           id: e.pointerId,
@@ -447,7 +491,7 @@ export class BoardController {
       }
       return
     }
-    if (box && w[0] >= box.minX && w[0] <= box.maxX && w[1] >= box.minY && w[1] <= box.maxY) {
+    if (frame && pointInPolygon(w, frameCorners(frame))) {
       this.g = { k: 'move', id: e.pointerId, start: w, before: s.elements, ids: new Set(s.selection), moved: false }
       return
     }
@@ -481,7 +525,8 @@ export class BoardController {
     for (let i = 0; i <= steps; i++) {
       const q: Vec = [a[0] + ((b[0] - a[0]) * i) / steps, a[1] + ((b[1] - a[1]) * i) / steps]
       for (const el of els) {
-        if (g.hits.has(el.id)) continue
+        // Las imágenes no se borran con el borrador: así se corrige lo anotado encima sin perder la captura.
+        if (g.hits.has(el.id) || el.type === 'image') continue
         const bb = elementBox(el)
         if (q[0] < bb.minX - r || q[0] > bb.maxX + r || q[1] < bb.minY - r || q[1] > bb.maxY + r) continue
         if (hitDistance(el, q) <= r) {

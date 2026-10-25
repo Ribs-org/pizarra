@@ -6,12 +6,14 @@ import '@fontsource-variable/inter/index.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { loadFiles } from './images'
 import './index.css'
 import { loadSaved, remeasureTexts, startAutosave } from './persist'
 import { loadFonts } from './text'
 
 loadSaved()
 startAutosave()
+void loadFiles()
 void loadFonts().then(remeasureTexts)
 
 createRoot(document.getElementById('root')!).render(

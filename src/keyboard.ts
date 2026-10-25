@@ -15,13 +15,14 @@ import { boardController } from './components/Board'
 import { toast } from './components/Toast'
 import { padNewLine, togglePad } from './components/ZoomPad'
 import { copyPng, exportPng, openFile, saveFile } from './export'
+import { imageFromClipboard, insertImage } from './images'
 import { useStore } from './store'
 import { COLOR_ORDER, SIZES } from './theme'
 import { TOOLS } from './tools'
 
 const TOOL_KEYS = new Map(TOOLS.map((t) => [t.key.toLowerCase(), t.id]))
 
-function isTyping(e: KeyboardEvent) {
+function isTyping(e: Event) {
   const t = e.target as HTMLElement | null
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
 }
@@ -109,13 +110,23 @@ export function useKeyboard() {
     const blur = () => {
       if (boardController) boardController.multiSelect = false
     }
+    // Ctrl+V con una imagen copiada (captura, foto): se pega en la pizarra.
+    const paste = (e: ClipboardEvent) => {
+      if (isTyping(e)) return
+      const file = imageFromClipboard(e.clipboardData)
+      if (!file) return
+      e.preventDefault()
+      void insertImage(file)
+    }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     window.addEventListener('blur', blur)
+    window.addEventListener('paste', paste)
     return () => {
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
       window.removeEventListener('blur', blur)
+      window.removeEventListener('paste', paste)
     }
   }, [])
 }

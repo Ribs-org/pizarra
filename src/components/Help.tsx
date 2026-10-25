@@ -10,6 +10,7 @@ const GESTURES: [string, string][] = [
   ['Mantén quieto al final', 'Convierte el trazo en forma limpia (círculo, caja, flecha, línea…)'],
   ['Después de enderezar una línea', 'Sigue moviendo el dedo para ajustar su punta'],
   ['Doble toque (seleccionar)', 'Editar texto / texto nuevo'],
+  ['Manilla redonda sobre la selección', 'Girar (se pega a 90°; con Shift, de a 15°)'],
 ]
 
 const KEYS: [string, string][] = [
@@ -24,6 +25,7 @@ const KEYS: [string, string][] = [
   ['F', 'Pantalla completa'],
   ['Espacio + arrastrar', 'Mover la vista'],
   ['Ctrl+Z / Ctrl+Y', 'Deshacer / rehacer'],
+  ['Ctrl+V', 'Pegar una imagen o captura de pantalla'],
   ['Ctrl+D · Supr', 'Duplicar · eliminar selección'],
   ['Ctrl+A', 'Seleccionar todo'],
   ['Ctrl + clic / arrastrar', 'Seleccionar varias cosas (con cualquier herramienta)'],

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BoardController } from '../controller'
-import { elementBox, unionBox } from '../geometry'
+import { elementBox, frameOf, SELECTION_PAD, selectionHandles } from '../geometry'
 import { useLive } from '../live'
 import { highlighterOpacity, outlineToPath, strokeOutline } from '../render'
 import { useStore } from '../store'
@@ -136,25 +136,21 @@ function SelectionLayer({ theme, z }: { theme: Theme; z: number }) {
   const selection = useStore((s) => s.selection)
   const elements = useStore((s) => s.elements)
   const editing = useStore((s) => s.editing)
-  const boxes = useMemo(() => {
+  const rotating = useLive((s) => s.frame)
+  const selected = useMemo(() => {
     const ids = new Set(selection)
-    return elements.filter((e) => ids.has(e.id)).map(elementBox)
+    return elements.filter((e) => ids.has(e.id))
   }, [selection, elements])
-  const all = unionBox(boxes)
-  if (!all || editing) return null
+  const boxes = useMemo(() => (selected.length > 1 ? selected.map(elementBox) : []), [selected])
+  const frame = rotating ?? frameOf(selected)
+  if (!frame || editing) return null
   const accent = theme.ui === 'dark' ? '#8AB4FF' : '#3B6FE0'
-  const pad = 6 / z
+  const pad = SELECTION_PAD / z
   const r = 6 / z
-  const corners = [
-    [all.minX - pad, all.minY - pad],
-    [all.maxX + pad, all.minY - pad],
-    [all.maxX + pad, all.maxY + pad],
-    [all.minX - pad, all.maxY + pad],
-  ]
+  const handles = selectionHandles(frame, z)
   return (
     <g pointerEvents="none">
-      {boxes.length > 1 &&
-        boxes.map((b, i) => (
+      {boxes.map((b, i) => (
           <rect
             key={i}
             x={b.minX}
@@ -168,16 +164,20 @@ function SelectionLayer({ theme, z }: { theme: Theme; z: number }) {
           />
         ))}
       <rect
-        x={all.minX - pad}
-        y={all.minY - pad}
-        width={all.maxX - all.minX + pad * 2}
-        height={all.maxY - all.minY + pad * 2}
+        x={frame.cx - frame.w / 2 - pad}
+        y={frame.cy - frame.h / 2 - pad}
+        width={frame.w + pad * 2}
+        height={frame.h + pad * 2}
+        transform={frame.angle ? `rotate(${(frame.angle * 180) / Math.PI} ${frame.cx} ${frame.cy})` : undefined}
         fill="none"
         stroke={accent}
         strokeWidth={1.5 / z}
         rx={4 / z}
       />
-      {corners.map(([x, y], i) => (
+      {/* manilla para girar */}
+      <line x1={handles.top[0]} y1={handles.top[1]} x2={handles.rotate[0]} y2={handles.rotate[1]} stroke={accent} strokeWidth={1.5 / z} />
+      <circle className="handle" cx={handles.rotate[0]} cy={handles.rotate[1]} r={r} fill={accent} stroke={accent} strokeWidth={1.5 / z} />
+      {handles.corners.map(([x, y], i) => (
         <circle key={i} className="handle" cx={x} cy={y} r={r} fill={theme.bg} stroke={accent} strokeWidth={1.5 / z} />
       ))}
     </g>

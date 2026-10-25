@@ -40,6 +40,8 @@ export interface EditingText {
   fontSize: number
   font: FontKey
   color: ColorKey
+  /** radianes: el texto que se edita está girado */
+  angle?: number
 }
 
 export interface PadTarget {

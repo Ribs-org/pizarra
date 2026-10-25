@@ -222,7 +222,8 @@ export function SelectionActions() {
 
   if (!box || editing || dragging) return null
   const cx = ((box.minX + box.maxX) / 2) * camera.z + camera.x
-  let top = box.minY * camera.z + camera.y - 58
+  // Más arriba que la manilla de giro, para no taparla.
+  let top = box.minY * camera.z + camera.y - 92
   if (top < 64) top = box.maxY * camera.z + camera.y + 16
 
   return (

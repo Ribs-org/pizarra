@@ -1,10 +1,10 @@
 /** Acciones compartidas por la pizarra, los atajos de teclado, la paleta de comandos y la UI. */
-import { elementBox, translateEl, unionBox } from './geometry'
+import { elementBox, frameOf, translateEl, unionBox } from './geometry'
 import { STAMP_MAP } from './stamps'
 import { newId, newSeed, screenToWorld, useStore, zoomAt } from './store'
 import { lineHeight, measureText } from './text'
 import { SIZES } from './theme'
-import type { Box, El, TextEl, Vec } from './types'
+import type { El, Frame, TextEl, Vec } from './types'
 
 /** Última posición del puntero sobre la pizarra (mundo). La actualiza el controlador. */
 export const pointerState: { world: Vec | null; overBoard: boolean } = { world: null, overBoard: false }
@@ -32,6 +32,7 @@ export function startText(at: Vec, existing?: TextEl) {
       fontSize: existing.fontSize,
       font: existing.font,
       color: existing.color,
+      angle: existing.angle,
     })
     s.select([])
     return
@@ -123,10 +124,10 @@ export function insertStamp(stampId: string, at?: Vec) {
 
 // ——— Selección ———
 
-export function selectionBox(): Box | null {
+export function selectionFrame(): Frame | null {
   const s = useStore.getState()
   const ids = new Set(s.selection)
-  return unionBox(s.elements.filter((e) => ids.has(e.id)).map(elementBox))
+  return frameOf(s.elements.filter((e) => ids.has(e.id)))
 }
 
 export function deleteSelection() {
@@ -183,7 +184,7 @@ export function applyStyleToSelection(patch: Partial<Pick<El, 'color'>> & { size
       else if (n.type === 'text') {
         const { w, h } = measureText(n.text, n.font, preset.text)
         n = { ...n, fontSize: preset.text, w, h }
-      } else n = { ...n, width: preset.shape }
+      } else if (n.type !== 'image') n = { ...n, width: preset.shape }
     }
     if (patch.font && n.type === 'text') {
       const font = patch.font as TextEl['font']

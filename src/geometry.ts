@@ -1,4 +1,4 @@
-import type { Box, El, Vec } from './types'
+import type { Box, El, Frame, Vec } from './types'
 
 export const dist = (a: Vec | number[], b: Vec | number[]) => Math.hypot(a[0] - b[0], a[1] - b[1])
 
@@ -162,6 +162,68 @@ export function boxOutline(el: { type: string; cx: number; cy: number; w: number
   return angle ? pts.map((p) => rotate(p, [cx, cy], angle)) : pts
 }
 
+/** Caja (sin girar) de textos, sellos e imágenes, con su ángulo. */
+const rectFrame = (el: { x: number; y: number; w: number; h: number; angle?: number }): Frame => ({
+  cx: el.x + el.w / 2,
+  cy: el.y + el.h / 2,
+  w: el.w,
+  h: el.h,
+  angle: el.angle ?? 0,
+})
+
+export function frameCorners(f: Frame, pad = 0): Vec[] {
+  const hw = f.w / 2 + pad
+  const hh = f.h / 2 + pad
+  const pts: Vec[] = [
+    [f.cx - hw, f.cy - hh],
+    [f.cx + hw, f.cy - hh],
+    [f.cx + hw, f.cy + hh],
+    [f.cx - hw, f.cy + hh],
+  ]
+  return f.angle ? pts.map((p) => rotate(p, [f.cx, f.cy], f.angle)) : pts
+}
+
+/** Caja propia (girable) de los elementos con ángulo; null para trazos, líneas y polígonos. */
+export function ownFrame(el: El): Frame | null {
+  switch (el.type) {
+    case 'rect':
+    case 'ellipse':
+    case 'diamond':
+      return { cx: el.cx, cy: el.cy, w: el.w + el.width * 2, h: el.h + el.width * 2, angle: el.angle }
+    case 'text':
+    case 'stamp':
+    case 'image':
+      return rectFrame(el)
+    default:
+      return null
+  }
+}
+
+/** Marco de selección: si es un solo elemento, su caja propia (así se ve girado); si no, la caja que contiene todo. */
+export function frameOf(els: El[]): Frame | null {
+  const own = els.length === 1 ? ownFrame(els[0]) : null
+  if (own) return own
+  const b = unionBox(els.map(elementBox))
+  return b && { cx: (b.minX + b.maxX) / 2, cy: (b.minY + b.maxY) / 2, w: b.maxX - b.minX, h: b.maxY - b.minY, angle: 0 }
+}
+
+/** Separación (px de pantalla) entre lo seleccionado y su marco, y del marco a la manilla de giro. */
+export const SELECTION_PAD = 6
+const ROTATE_GAP = 26
+
+/** Esquinas (para escalar) y manilla de giro del marco de selección, en coordenadas del mundo. */
+export function selectionHandles(f: Frame, z: number) {
+  const pad = SELECTION_PAD / z
+  const c: Vec = [f.cx, f.cy]
+  const top = f.cy - f.h / 2 - pad
+  return {
+    corners: frameCorners(f, pad),
+    /** centro del borde de arriba, de donde sale el palito de la manilla */
+    top: rotate([f.cx, top], c, f.angle),
+    rotate: rotate([f.cx, top - ROTATE_GAP / z], c, f.angle),
+  }
+}
+
 export function elementBox(el: El): Box {
   switch (el.type) {
     case 'stroke':
@@ -182,7 +244,8 @@ export function elementBox(el: El): Box {
       return boxOf(el.points, el.width)
     case 'text':
     case 'stamp':
-      return { minX: el.x, minY: el.y, maxX: el.x + el.w, maxY: el.y + el.h }
+    case 'image':
+      return el.angle ? boxOf(frameCorners(rectFrame(el))) : { minX: el.x, minY: el.y, maxX: el.x + el.w, maxY: el.y + el.h }
   }
 }
 
@@ -204,10 +267,12 @@ export function hitDistance(el: El, p: Vec): number {
       if (el.fill !== 'none' && pointInPolygon(p, el.points)) return 0
       return distToPolyline(p, el.points, true)
     case 'text':
-    case 'stamp': {
-      const b = elementBox(el)
-      const dx = Math.max(b.minX - p[0], 0, p[0] - b.maxX)
-      const dy = Math.max(b.minY - p[1], 0, p[1] - b.maxY)
+    case 'stamp':
+    case 'image': {
+      // Si está girado, se lleva el punto al sistema del elemento y se mide contra su caja.
+      const q = el.angle ? rotate(p, [el.x + el.w / 2, el.y + el.h / 2], -el.angle) : p
+      const dx = Math.max(el.x - q[0], 0, q[0] - el.x - el.w)
+      const dy = Math.max(el.y - q[1], 0, q[1] - el.y - el.h)
       return Math.hypot(dx, dy)
     }
   }
@@ -226,6 +291,7 @@ export function translateEl<T extends El>(el: T, dx: number, dy: number): T {
       return { ...el, points: el.points.map((p) => [p[0] + dx, p[1] + dy] as Vec) }
     case 'text':
     case 'stamp':
+    case 'image':
       return { ...el, x: el.x + dx, y: el.y + dy }
   }
 }
@@ -233,6 +299,11 @@ export function translateEl<T extends El>(el: T, dx: number, dy: number): T {
 /** Escala uniforme respecto a un origen. La tinta a mano escala su grosor; las formas lo mantienen. */
 export function scaleEl<T extends El>(el: T, s: number, o: Vec): T {
   const sp = (p: Vec | number[]): Vec => [o[0] + (p[0] - o[0]) * s, o[1] + (p[1] - o[1]) * s]
+  // Las cajas escalan desde su centro (no la esquina), así da lo mismo si están giradas.
+  const spBox = (b: { x: number; y: number; w: number; h: number }) => {
+    const [cx, cy] = sp([b.x + b.w / 2, b.y + b.h / 2])
+    return { x: cx - (b.w * s) / 2, y: cy - (b.h * s) / 2, w: b.w * s, h: b.h * s }
+  }
   switch (el.type) {
     case 'stroke':
       return {
@@ -249,13 +320,42 @@ export function scaleEl<T extends El>(el: T, s: number, o: Vec): T {
     case 'line':
     case 'poly':
       return { ...el, points: el.points.map(sp) }
-    case 'text': {
-      const [x, y] = sp([el.x, el.y])
-      return { ...el, x, y, fontSize: el.fontSize * s, w: el.w * s, h: el.h * s }
+    case 'text':
+      return { ...el, ...spBox(el), fontSize: el.fontSize * s }
+    case 'stamp':
+    case 'image':
+      return { ...el, ...spBox(el) }
+  }
+}
+
+/** Lleva un ángulo a (-π, π]; lo que queda casi en cero, a cero exacto. */
+export function normAngle(a: number) {
+  let r = a % (Math.PI * 2)
+  if (r > Math.PI) r -= Math.PI * 2
+  else if (r <= -Math.PI) r += Math.PI * 2
+  return Math.abs(r) < 1e-9 ? 0 : r
+}
+
+/** Gira el elemento un ángulo `a` (radianes) alrededor de `c`. */
+export function rotateEl<T extends El>(el: T, a: number, c: Vec): T {
+  const rp = (p: Vec | number[]): Vec => rotate([p[0], p[1]], c, a)
+  switch (el.type) {
+    case 'stroke':
+      return { ...el, points: el.points.map((p) => [...rp(p), p[2]]) }
+    case 'rect':
+    case 'ellipse':
+    case 'diamond': {
+      const [cx, cy] = rp([el.cx, el.cy])
+      return { ...el, cx, cy, angle: normAngle(el.angle + a) }
     }
-    case 'stamp': {
-      const [x, y] = sp([el.x, el.y])
-      return { ...el, x, y, w: el.w * s, h: el.h * s }
+    case 'line':
+    case 'poly':
+      return { ...el, points: el.points.map(rp) }
+    case 'text':
+    case 'stamp':
+    case 'image': {
+      const [cx, cy] = rp([el.x + el.w / 2, el.y + el.h / 2])
+      return { ...el, x: cx - el.w / 2, y: cy - el.h / 2, angle: normAngle((el.angle ?? 0) + a) }
     }
   }
 }

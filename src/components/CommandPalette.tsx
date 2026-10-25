@@ -12,6 +12,7 @@ import {
   zoomToFit,
 } from '../actions'
 import { copyPng, exportPng, openFile, saveFile } from '../export'
+import { pasteImage } from '../images'
 import { normalize } from '../search'
 import { STAMPS } from '../stamps'
 import { newId, useStore } from '../store'
@@ -112,6 +113,7 @@ function buildCommands(): Cmd[] {
   const actions: Omit<Cmd, 'group'>[] = [
     { id: 'pad', label: 'Lupa de escritura', hint: 'Z', keywords: 'zoom escribir letra ordenada', run: togglePad },
     { id: 'library', label: 'Biblioteca de dibujos', hint: 'B', run: () => s.setUI({ library: true }) },
+    { id: 'paste-image', label: 'Pegar imagen', hint: 'Ctrl+V', keywords: 'captura foto screenshot portapapeles', run: pasteImage },
     { id: 'undo', label: 'Deshacer', hint: 'Ctrl+Z', run: s.undo },
     { id: 'redo', label: 'Rehacer', hint: 'Ctrl+Y', run: s.redo },
     { id: 'all', label: 'Seleccionar todo', hint: 'Ctrl+A', run: selectAll },

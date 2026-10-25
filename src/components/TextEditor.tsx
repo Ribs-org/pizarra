@@ -51,6 +51,9 @@ export function TextEditor() {
         top: editing.y * camera.z + camera.y,
         width: w * camera.z + size * 1.2,
         height: lines * lh,
+        // Gira alrededor del centro que tendrá el texto al confirmarse (así calza con como queda).
+        transform: editing.angle ? `rotate(${editing.angle}rad)` : undefined,
+        transformOrigin: `${(w * camera.z) / 2}px ${(lines * lh) / 2}px`,
         fontFamily: `"${f.family}", cursive`,
         fontWeight: f.weight,
         fontSize: size,

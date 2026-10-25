@@ -77,6 +77,8 @@ export interface TextEl extends Base {
   font: FontKey
   w: number
   h: number
+  /** radianes, alrededor del centro */
+  angle?: number
 }
 
 export interface StampEl extends Base {
@@ -89,9 +91,24 @@ export interface StampEl extends Base {
   width: number
   rough: Roughness
   seed: number
+  /** radianes, alrededor del centro */
+  angle?: number
 }
 
-export type El = StrokeEl | BoxEl | LineEl | PolyEl | TextEl | StampEl
+/** Imagen pegada (captura, foto). El contenido se guarda aparte, ver images.ts. */
+export interface ImageEl extends Base {
+  type: 'image'
+  /** id del contenido en el almacén de imágenes */
+  file: string
+  x: number
+  y: number
+  w: number
+  h: number
+  /** radianes, alrededor del centro */
+  angle?: number
+}
+
+export type El = StrokeEl | BoxEl | LineEl | PolyEl | TextEl | StampEl | ImageEl
 
 export type Tool =
   | 'select'
@@ -118,6 +135,16 @@ export interface Box {
   minY: number
   maxX: number
   maxY: number
+}
+
+/** Caja que puede estar girada (marco de selección). */
+export interface Frame {
+  cx: number
+  cy: number
+  w: number
+  h: number
+  /** radianes */
+  angle: number
 }
 
 /** Resultado del reconocedor de formas (antes de convertirse en elemento). */

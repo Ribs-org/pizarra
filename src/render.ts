@@ -34,12 +34,29 @@ export interface TextPrim {
   family: string
   weight: number
   fill: string
+  rot?: [number, number, number]
+}
+
+export interface ImagePrim {
+  /** id del contenido (ver images.ts) */
+  file: string
+  x: number
+  y: number
+  w: number
+  h: number
+  rot?: [number, number, number]
 }
 
 export interface Drawn {
   paths: PathPrim[]
   texts: TextPrim[]
+  images?: ImagePrim[]
   steps: number
+}
+
+/** Giro alrededor del centro de una caja, en el formato de las primitivas. */
+function boxRot(el: { x: number; y: number; w: number; h: number; angle?: number }): [number, number, number] | undefined {
+  return el.angle ? [(el.angle * 180) / Math.PI, el.x + el.w / 2, el.y + el.h / 2] : undefined
 }
 
 const gen = rough.generator()
@@ -184,7 +201,9 @@ function stampPrims(el: Extract<El, { type: 'stamp' }>, color: string): Drawn {
     }
     paths.push(...drawableToPrims(d, i))
   })
-  return { paths, texts: [], steps: def.prims.length }
+  // Se dibuja sin girar y se gira entero: así el trazo a mano no cambia al rotarlo.
+  const rot = boxRot(el)
+  return { paths: rot ? paths.map((p) => ({ ...p, rot })) : paths, texts: [], steps: def.prims.length }
 }
 
 // ——— Punto de entrada ———
@@ -254,6 +273,7 @@ function computeDrawn(el: El, theme: Theme): Drawn {
       const f = FONTS[el.font]
       const lh = lineHeight(el.font, el.fontSize)
       const base = baselineOffset(el.font, el.fontSize)
+      const rot = boxRot(el)
       const texts = el.text.split('\n').map((line, i) => ({
         x: el.x,
         y: el.y + i * lh + base,
@@ -262,10 +282,13 @@ function computeDrawn(el: El, theme: Theme): Drawn {
         family: f.family,
         weight: f.weight,
         fill: color,
+        rot,
       }))
       return { paths: [], texts, steps: texts.length }
     }
     case 'stamp':
       return stampPrims(el, color)
+    case 'image':
+      return { paths: [], texts: [], images: [{ file: el.file, x: el.x, y: el.y, w: el.w, h: el.h, rot: boxRot(el) }], steps: 1 }
   }
 }
